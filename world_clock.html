@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 World Clock</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #13131f;
+    --card-border: #1e1e35;
+    --accent: #7c6fff;
+    --accent2: #ff6fb0;
+    --text: #e8e8f0;
+    --muted: #6b6b85;
+    --glow: rgba(124,111,255,0.3);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+  /* LANG SWITCHER */
+  .lang-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 16px 32px 0;
+  }
+  .lang-btn {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .lang-btn:hover { border-color: var(--accent); color: var(--text); }
+  .lang-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 12px var(--glow);
+  }
+
+  header { text-align:center; padding:32px 24px 20px; }
+  header h1 { font-size:2.2rem; font-weight:700; letter-spacing:-0.5px; }
+  header h1 span { color:var(--accent); }
+  header p { color:var(--muted); margin-top:6px; font-size:0.95rem; }
+
+  .search-wrap { display:flex; justify-content:center; padding:16px 24px 32px; gap:10px; flex-wrap:wrap; }
+  .search-wrap input {
+    background:var(--card); border:1px solid var(--card-border); color:var(--text);
+    padding:12px 18px; border-radius:12px; font-size:1rem; width:300px;
+    outline:none; transition:border-color 0.2s,box-shadow 0.2s;
+  }
+  .search-wrap input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
+  .search-wrap input::placeholder { color:var(--muted); }
+
+  .btn-add {
+    background:var(--accent); color:#fff; border:none;
+    padding:12px 22px; border-radius:12px; font-size:1rem;
+    cursor:pointer; transition:opacity 0.2s,transform 0.1s; font-weight:600;
+  }
+  .btn-add:hover { opacity:0.85; transform:translateY(-1px); }
+  .btn-add:active { transform:translateY(0); }
+
+  .grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr));
+    gap:20px; padding:0 32px 60px; max-width:1200px; margin:0 auto;
+  }
+
+  .card {
+    background:var(--card); border:1px solid var(--card-border);
+    border-radius:20px; padding:24px; position:relative;
+    transition:transform 0.2s,box-shadow 0.2s; animation:fadeIn 0.35s ease;
+  }
+  .card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.5),0 0 0 1px var(--accent); }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+  .card .remove {
+    position:absolute; top:14px; right:16px;
+    background:none; border:none; color:var(--muted); font-size:1.2rem;
+    cursor:pointer; line-height:1; transition:color 0.2s;
+  }
+  .card .remove:hover { color:var(--accent2); }
+
+  .card .city-name { font-size:1.1rem; font-weight:700; margin-bottom:2px; padding-right:24px; }
+  .card .tz-label { font-size:0.78rem; color:var(--muted); margin-bottom:18px; }
+
+  .clock-face { display:flex; align-items:center; gap:18px; margin-bottom:14px; }
+  canvas.analog { flex-shrink:0; }
+
+  .digital-time {
+    font-size:2rem; font-weight:700; letter-spacing:1px;
+    line-height:1; font-variant-numeric:tabular-nums;
+  }
+  .digital-time .seconds { font-size:1.2rem; color:var(--accent); font-weight:400; }
+  .digital-date { font-size:0.82rem; color:var(--muted); margin-top:5px; }
+
+  .ampm-bar { display:flex; align-items:center; gap:8px; margin-top:8px; }
+  .ampm-badge {
+    font-size:0.75rem; font-weight:800; letter-spacing:1px;
+    padding:3px 10px; border-radius:20px; text-transform:uppercase;
+  }
+  .ampm-badge.am {
+    background:linear-gradient(135deg,#1a2a4a,#1e3560); color:#7ab8ff;
+    border:1px solid #2a4a80; text-shadow:0 0 8px rgba(122,184,255,0.6);
+  }
+  .ampm-badge.pm {
+    background:linear-gradient(135deg,#2a1a10,#3d2010); color:#ffb347;
+    border:1px solid #6a3a10; text-shadow:0 0 8px rgba(255,179,71,0.6);
+  }
+  .ampm-icon { font-size:1rem; }
+
+  .badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .offset-badge {
+    display:inline-block;
+    background:rgba(124,111,255,0.12); border:1px solid rgba(124,111,255,0.25);
+    color:var(--accent); font-size:0.78rem; padding:3px 10px; border-radius:20px; font-weight:600;
+  }
+  .dst-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+  .dst-badge.on {
+    background: linear-gradient(135deg, #1a2e1a, #1e3d1e);
+    color: #6ddd6d;
+    border: 1px solid #2a5a2a;
+    text-shadow: 0 0 8px rgba(109,221,109,0.5);
+    animation: dst-pulse 3s ease-in-out infinite;
+  }
+  .dst-badge.off {
+    background: rgba(107,107,133,0.1);
+    color: var(--muted);
+    border: 1px solid rgba(107,107,133,0.2);
+  }
+  @keyframes dst-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(109,221,109,0); }
+    50%      { box-shadow: 0 0 8px 2px rgba(109,221,109,0.2); }
+  }
+
+  .card.local { border-color:rgba(124,111,255,0.5); background:linear-gradient(135deg,#13131f,#1a1530); }
+  .card.local .local-label {
+    font-size:0.7rem; color:var(--accent); font-weight:700;
+    text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;
+  }
+
+  .empty { text-align:center; padding:60px 24px; color:var(--muted); grid-column:1/-1; }
+  .empty .icon { font-size:3rem; margin-bottom:12px; }
+
+  footer { text-align:center; padding:24px; color:var(--muted); font-size:0.82rem; border-top:1px solid var(--card-border); }
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <button class="lang-btn active" onclick="setLang('ko')">한국어</button>
+  <button class="lang-btn" onclick="setLang('ja')">日本語</button>
+  <button class="lang-btn" onclick="setLang('en')">English</button>
+</div>
+
+<header>
+  <h1>🌍 World <span>Clock</span></h1>
+  <p id="header-sub"></p>
+</header>
+
+<div class="search-wrap">
+  <input list="tz-list" id="tzInput" autocomplete="off">
+  <datalist id="tz-list"></datalist>
+  <button class="btn-add" id="btn-add" onclick="addFromInput()"></button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer id="footer"></footer>
+
+<script>
+// ─── i18n ──────────────────────────────────────────────────────────────────
+const I18N = {
+  ko: {
+    subtitle: '나라와 도시를 추가해서 전 세계 시간을 한눈에 확인하세요',
+    placeholder: '도시 또는 시간대 검색 (예: Tokyo, New York…)',
+    addBtn: '+ 추가',
+    localLabel: '📍 내 위치',
+    offsetLocal: '📍 현재 위치',
+    footer: 'GitHub Pages에서 무료로 호스팅 · 새로고침 없이 실시간 업데이트',
+    empty: '도시를 추가해보세요',
+    amLabel: 'AM', pmLabel: 'PM',
+    dstOn: '☀️ 섬머타임 적용중',
+    dstOff: '섬머타임 없음',
+    dateLocale: 'ko-KR',
+    dateOpts: { weekday:'short', year:'numeric', month:'long', day:'numeric' },
+  },
+  ja: {
+    subtitle: '都市を追加して、世界中の時刻を一目で確認しましょう',
+    placeholder: '都市またはタイムゾーンを検索（例：Tokyo, New York…）',
+    addBtn: '+ 追加',
+    localLabel: '📍 現在地',
+    offsetLocal: '📍 現在地',
+    footer: 'GitHub Pagesで無料ホスティング · リアルタイム更新',
+    empty: '都市を追加してください',
+    amLabel: '午前', pmLabel: '午後',
+    dstOn: '☀️ サマータイム実施中',
+    dstOff: 'サマータイムなし',
+    dateLocale: 'ja-JP',
+    dateOpts: { weekday:'short', year:'numeric', month:'long', day:'numeric' },
+  },
+  en: {
+    subtitle: 'Add cities to track time around the world at a glance',
+    placeholder: 'Search city or timezone (e.g. Tokyo, New York…)',
+    addBtn: '+ Add',
+    localLabel: '📍 My Location',
+    offsetLocal: '📍 Local',
+    footer: 'Free hosting on GitHub Pages · Real-time updates',
+    empty: 'Add a city to get started',
+    amLabel: 'AM', pmLabel: 'PM',
+    dstOn: '☀️ Daylight Saving Time',
+    dstOff: 'No DST',
+    dateLocale: 'en-US',
+    dateOpts: { weekday:'short', year:'numeric', month:'short', day:'numeric' },
+  },
+};
+
+let lang = localStorage.getItem('wc_lang') || 'ko';
+
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('wc_lang', l);
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.lang-btn[onclick="setLang('${l}')"]`).classList.add('active');
+  applyLangUI();
+  renderAll();
+}
+
+function t() { return I18N[lang]; }
+
+function applyLangUI() {
+  document.getElementById('header-sub').textContent = t().subtitle;
+  document.getElementById('tzInput').placeholder = t().placeholder;
+  document.getElementById('btn-add').textContent = t().addBtn;
+  document.getElementById('footer').textContent = t().footer;
+}
+
+// ─── Timezone DB ───────────────────────────────────────────────────────────
+const TZ_LIST = [
+  { label:"Seoul, South Korea",      tz:"Asia/Seoul" },
+  { label:"Tokyo, Japan",            tz:"Asia/Tokyo" },
+  { label:"Beijing, China",          tz:"Asia/Shanghai" },
+  { label:"Hong Kong",               tz:"Asia/Hong_Kong" },
+  { label:"Singapore",               tz:"Asia/Singapore" },
+  { label:"Bangkok, Thailand",       tz:"Asia/Bangkok" },
+  { label:"Jakarta, Indonesia",      tz:"Asia/Jakarta" },
+  { label:"Mumbai, India",           tz:"Asia/Kolkata" },
+  { label:"Dubai, UAE",              tz:"Asia/Dubai" },
+  { label:"Riyadh, Saudi Arabia",    tz:"Asia/Riyadh" },
+  { label:"Moscow, Russia",          tz:"Europe/Moscow" },
+  { label:"Istanbul, Turkey",        tz:"Europe/Istanbul" },
+  { label:"Athens, Greece",          tz:"Europe/Athens" },
+  { label:"Berlin, Germany",         tz:"Europe/Berlin" },
+  { label:"Paris, France",           tz:"Europe/Paris" },
+  { label:"Rome, Italy",             tz:"Europe/Rome" },
+  { label:"Madrid, Spain",           tz:"Europe/Madrid" },
+  { label:"London, UK",              tz:"Europe/London" },
+  { label:"Lisbon, Portugal",        tz:"Europe/Lisbon" },
+  { label:"Lagos, Nigeria",          tz:"Africa/Lagos" },
+  { label:"Cairo, Egypt",            tz:"Africa/Cairo" },
+  { label:"Johannesburg, S.Africa",  tz:"Africa/Johannesburg" },
+  { label:"Nairobi, Kenya",          tz:"Africa/Nairobi" },
+  { label:"New York, USA",           tz:"America/New_York" },
+  { label:"Chicago, USA",            tz:"America/Chicago" },
+  { label:"Denver, USA",             tz:"America/Denver" },
+  { label:"Los Angeles, USA",        tz:"America/Los_Angeles" },
+  { label:"Toronto, Canada",         tz:"America/Toronto" },
+  { label:"Vancouver, Canada",       tz:"America/Vancouver" },
+  { label:"Mexico City, Mexico",     tz:"America/Mexico_City" },
+  { label:"São Paulo, Brazil",       tz:"America/Sao_Paulo" },
+  { label:"Buenos Aires, Argentina", tz:"America/Argentina/Buenos_Aires" },
+  { label:"Sydney, Australia",       tz:"Australia/Sydney" },
+  { label:"Melbourne, Australia",    tz:"Australia/Melbourne" },
+  { label:"Auckland, New Zealand",   tz:"Pacific/Auckland" },
+  { label:"Honolulu, Hawaii",        tz:"Pacific/Honolulu" },
+  { label:"Anchorage, Alaska",       tz:"America/Anchorage" },
+  { label:"UTC",                     tz:"UTC" },
+];
+
+const dl = document.getElementById('tz-list');
+TZ_LIST.forEach(t => { const o = document.createElement('option'); o.value = t.label; dl.appendChild(o); });
+
+// ─── State ────────────────────────────────────────────────────────────────
+let clocks = [];
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function localLabel() {
+  const found = TZ_LIST.find(x => x.tz === LOCAL_TZ);
+  return found ? found.label : LOCAL_TZ.replace('_',' ');
+}
+
+function loadState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('wc_clocks') || 'null');
+    if (saved && saved.length) clocks = saved.filter(c => !c.isLocal);
+  } catch(e) {}
+  clocks = [{ id:'local', label:localLabel(), tz:LOCAL_TZ, isLocal:true }, ...clocks];
+}
+
+function saveState() {
+  localStorage.setItem('wc_clocks', JSON.stringify(clocks.filter(c => !c.isLocal)));
+}
+
+// ─── Add / Remove ─────────────────────────────────────────────────────────
+function addFromInput() {
+  const raw = document.getElementById('tzInput').value.trim();
+  if (!raw) return;
+  const found = TZ_LIST.find(t => t.label.toLowerCase() === raw.toLowerCase());
+  if (!found) { shake(); return; }
+  if (clocks.find(c => c.tz === found.tz)) { document.getElementById('tzInput').value=''; return; }
+  clocks.push({ id:Date.now().toString(), label:found.label, tz:found.tz, isLocal:false });
+  saveState(); renderAll();
+  document.getElementById('tzInput').value = '';
+}
+
+function removeClock(id) { clocks=clocks.filter(c=>c.id!==id); saveState(); renderAll(); }
+
+function shake() {
+  const inp = document.getElementById('tzInput');
+  inp.style.borderColor='#ff6fb0'; inp.style.boxShadow='0 0 0 3px rgba(255,111,176,0.3)';
+  setTimeout(()=>{ inp.style.borderColor=''; inp.style.boxShadow=''; },600);
+}
+
+document.getElementById('tzInput').addEventListener('keydown', e => { if(e.key==='Enter') addFromInput(); });
+
+// ─── Render ───────────────────────────────────────────────────────────────
+function renderAll() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  if (clocks.length === 0) {
+    grid.innerHTML = `<div class="empty"><div class="icon">🌐</div><p>${t().empty}</p></div>`;
+    return;
+  }
+  clocks.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'card' + (c.isLocal ? ' local' : '');
+    card.id = 'card-' + c.id;
+    const cityName = c.label.split(',')[0];
+    const regionName = c.label.includes(',') ? c.label.slice(c.label.indexOf(',')+1).trim() : '';
+    card.innerHTML = `
+      ${c.isLocal ? `<div class="local-label">${t().localLabel}</div>` : `<button class="remove" onclick="removeClock('${c.id}')" title="remove">✕</button>`}
+      <div class="city-name">${cityName}</div>
+      <div class="tz-label">${regionName ? regionName+' · ' : ''}${c.tz}</div>
+      <div class="clock-face">
+        <canvas class="analog" id="canvas-${c.id}" width="80" height="80"></canvas>
+        <div>
+          <div class="digital-time" id="dt-${c.id}"></div>
+          <div class="ampm-bar">
+            <span class="ampm-badge" id="ap-${c.id}"></span>
+            <span class="ampm-icon" id="ai-${c.id}"></span>
+          </div>
+          <div class="digital-date" id="dd-${c.id}"></div>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="offset-badge" id="off-${c.id}"></span>
+        <span class="dst-badge" id="dst-${c.id}"></span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// DST 판별: 1월(표준시)과 7월(섬머타임 후보)의 UTC 오프셋을 비교해서
+// 현재 오프셋이 연중 최대값이면 DST 적용 중으로 판단
+function isDST(tz) {
+  const now = new Date();
+  const jan = new Date(now.getFullYear(), 0, 15);
+  const jul = new Date(now.getFullYear(), 6, 15);
+  const getOff = d => {
+    const utc = new Date(d.toLocaleString('en-US', { timeZone:'UTC' }));
+    const loc = new Date(d.toLocaleString('en-US', { timeZone:tz }));
+    return (loc - utc) / 60000; // minutes
+  };
+  const janOff = getOff(jan);
+  const julOff = getOff(jul);
+  const nowOff = getOff(now);
+  // 1월과 7월 오프셋이 같으면 DST 없는 지역
+  if (janOff === julOff) return null; // DST 없음
+  // 현재 오프셋이 연중 최대값이면 DST 적용 중
+  return nowOff === Math.max(janOff, julOff);
+}
+
+
+function getPartsInTZ(tz) {
+  const now = new Date();
+  const fmt = opts => new Intl.DateTimeFormat('en-US', { timeZone:tz, ...opts }).format(now);
+  const h = parseInt(fmt({ hour:'numeric', hour12:false }));
+  const m = parseInt(fmt({ minute:'2-digit' }));
+  const s = parseInt(fmt({ second:'2-digit' }));
+  const timeStr = fmt({ hour:'2-digit', minute:'2-digit', hour12:false });
+  const secStr = fmt({ second:'2-digit' });
+  const dateStr = new Intl.DateTimeFormat(t().dateLocale, { timeZone:tz, ...t().dateOpts }).format(now);
+  return { h, m, s, timeStr, secStr, dateStr };
+}
+
+function getOffsetHours(tz) {
+  const now = new Date();
+  const local = new Date(now.toLocaleString('en-US', { timeZone:LOCAL_TZ }));
+  const target = new Date(now.toLocaleString('en-US', { timeZone:tz }));
+  const diff = (target - local) / 3600000;
+  if (diff === 0) return t().offsetLocal;
+  return (diff > 0 ? '+' : '') + diff + 'h';
+}
+
+function drawAnalog(canvas, h, m, s) {
+  const ctx = canvas.getContext('2d');
+  const cx=40, cy=40, r=36;
+  ctx.clearRect(0,0,80,80);
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#0d0d1a'; ctx.fill();
+  ctx.strokeStyle='#2a2a45'; ctx.lineWidth=2; ctx.stroke();
+  for (let i=0;i<12;i++) {
+    const a=(i/12)*Math.PI*2-Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(a)*30, cy+Math.sin(a)*30);
+    ctx.lineTo(cx+Math.cos(a)*34, cy+Math.sin(a)*34);
+    ctx.strokeStyle='#3a3a60'; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  const hA=((h%12+m/60)/12)*Math.PI*2-Math.PI/2;
+  const mA=((m+s/60)/60)*Math.PI*2-Math.PI/2;
+  const sA=(s/60)*Math.PI*2-Math.PI/2;
+  drawHand(ctx,cx,cy,hA,20,3,'#e8e8f0');
+  drawHand(ctx,cx,cy,mA,28,2,'#c0c0d8');
+  drawHand(ctx,cx,cy,sA,30,1,'#7c6fff');
+  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2);
+  ctx.fillStyle='#7c6fff'; ctx.fill();
+}
+
+function drawHand(ctx,cx,cy,angle,len,width,color) {
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(angle)*len, cy+Math.sin(angle)*len);
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.stroke();
+}
+
+function tick() {
+  clocks.forEach(c => {
+    const el_dt  = document.getElementById('dt-'+c.id);
+    const el_dd  = document.getElementById('dd-'+c.id);
+    const el_off = document.getElementById('off-'+c.id);
+    const el_ap  = document.getElementById('ap-'+c.id);
+    const el_ai  = document.getElementById('ai-'+c.id);
+    const canvas = document.getElementById('canvas-'+c.id);
+    if (!el_dt) return;
+    const { h, m, s, timeStr, secStr, dateStr } = getPartsInTZ(c.tz);
+    el_dt.innerHTML = `${timeStr}<span class="seconds">:${secStr}</span>`;
+    const isAM = h < 12;
+    if (el_ap) { el_ap.textContent = isAM ? t().amLabel : t().pmLabel; el_ap.className='ampm-badge '+(isAM?'am':'pm'); }
+    if (el_ai) { el_ai.textContent = h<6?'🌙':h<12?'🌅':h<17?'☀️':h<21?'🌆':'🌃'; }
+    const el_dst = document.getElementById('dst-'+c.id);
+    if (el_dst) {
+      const dst = isDST(c.tz);
+      if (dst === null) {
+        el_dst.textContent = t().dstOff;
+        el_dst.className = 'dst-badge off';
+      } else if (dst) {
+        el_dst.textContent = t().dstOn;
+        el_dst.className = 'dst-badge on';
+      } else {
+        el_dst.textContent = t().dstOff;
+        el_dst.className = 'dst-badge off';
+      }
+    }
+    el_dd.textContent = dateStr;
+    el_off.textContent = c.isLocal ? t().offsetLocal : getOffsetHours(c.tz);
+    drawAnalog(canvas, h, m, s);
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+loadState();
+if (clocks.length <= 1) {
+  ['America/New_York','Europe/London','Asia/Tokyo'].forEach(tz => {
+    const found = TZ_LIST.find(t => t.tz === tz);
+    if (found && !clocks.find(c => c.tz === tz))
+      clocks.push({ id:Date.now().toString()+Math.random(), label:found.label, tz:found.tz, isLocal:false });
+  });
+}
+
+applyLangUI();
+renderAll();
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
